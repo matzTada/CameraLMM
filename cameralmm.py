@@ -14,14 +14,14 @@ past_lmmArray = [[0 for i in range(LMM_WIDTH)] for j in range(LMM_HEIGHT)]
 
 
 import serial 
-ser0 = serial.Serial('/dev/ttyUSB0', 9600)
-ser1 = serial.Serial('/dev/ttyUSB1', 9600)
+ser1 = serial.Serial('/dev/ttyACM0', 58400)
+ser0 = serial.Serial('/dev/ttyACM1', 58400)
 
 
 while(True):
     # Capture frame-by-frame
-    ret, frame = cap.read()
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    ret, rawframe = cap.read()
+    frame = cv2.cvtColor(rawframe, cv2.COLOR_BGR2RGB)
 
     frame = cv2.resize(frame, (LMM_WIDTH, LMM_HEIGHT))
 
@@ -29,6 +29,8 @@ while(True):
 
     imgW = len(frame[0])
     imgH = len(frame)
+
+    print("next step")
 
     for imgY in range(0, imgH, 1):
       for imgX in range(0, imgW, 1):
@@ -48,11 +50,11 @@ while(True):
 
 
     for j in range(0, LMM_HEIGHT):
-      diffFlag = 0
-      for i in range(0, LMM_WIDTH):
-        if lmmArray[j][i] != past_lmmArray[j][i]:
-          diffFlag = 1
-          past_lmmArray[j][i] = lmmArray[j][i]
+      diffFlag = 1
+#      for i in range(0, LMM_WIDTH):
+#        if lmmArray[j][i] != past_lmmArray[j][i]:
+#          diffFlag = 1
+#          past_lmmArray[j][i] = lmmArray[j][i]
 
       if diffFlag == 1:
         sendStr = "n";
@@ -64,19 +66,25 @@ while(True):
         for i in range(0, LMM_WIDTH):
           sendStr += str(lmmArray[j][i])
 
-        # if j < 16:
-        #   for k in range(0, len(sendStr)):
-        #     ser0.write(sendStr.charAt(k))
-        # else:
-        #   for k in range(0, len(sendStr)):
-        #     ser1.write(sendStr.charAt(k));
+        if j < 16:
+          for k in range(0, len(sendStr)):
+            ser0.write(sendStr[k])
+        else:
+          for k in range(0, len(sendStr)):
+            ser1.write(sendStr[k])
 
-        print("wrote:" + str(j) + " " + sendStr);
+        print("wrote:" + str(j) + " " + sendStr)
         time.sleep(0.1)
 
+    ser0.write('o')
+    ser0.write('\n')
+    ser1.write('o')
+    ser1.write('\n')
+
+    time.sleep(5)
 
     # Display the resulting frame
-    cv2.imshow('frame', frame)
+    cv2.imshow('frame', rawframe)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
