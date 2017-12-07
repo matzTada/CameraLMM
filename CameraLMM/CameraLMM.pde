@@ -1,25 +1,21 @@
-/**
- * Many Serial Ports
- * 
- * Read data from the multiple Serial Ports
- */
-
-
+// LMM 
 import processing.serial.*;
-
 Serial[] myPorts = new Serial[2];  // Create a list of objects from Serial class
-
 int LMM_WIDTH = 32;
 int LMM_HEIGHT = 32;
-
 boolean[][] lmmArray = new boolean [LMM_WIDTH][LMM_HEIGHT];
 boolean[][] past_lmmArray = new boolean [LMM_WIDTH][LMM_HEIGHT];
-
 int walkX = 16, walkY = 16;
+
+// Camera
+import processing.video.*;
+Capture cam;
 
 void setup() {
   size(800, 800);
   frame.setResizable(true);
+
+  // LMM
   // print a list of the serial ports:
   printArray(Serial.list());
   // On my machine, the first and third ports in the list
@@ -37,6 +33,30 @@ void setup() {
   // open the ports:
   myPorts[0] = new Serial(this, portOne, 9600);
   myPorts[1] = new Serial(this, portTwo, 9600);
+
+  // Camera
+  String[] cameras = Capture.list();
+
+  if (cameras == null) {
+    println("Failed to retrieve the list of available cameras, will try the default...");
+    cam = new Capture(this, 640, 480);
+  } 
+  if (cameras.length == 0) {
+    println("There are no cameras available for capture.");
+    exit();
+  } else {
+    println("Available cameras:");
+    printArray(cameras);
+
+    // The camera can be initialized directly using an element
+    // from the array returned by list():
+    cam = new Capture(this, cameras[0]);
+    // Or, the settings can be defined based on the text in the list
+    //cam = new Capture(this, 640, 480, "Built-in iSight", 30);
+
+    // Start capturing the images from the camera
+    cam.start();
+  }
 }
 
 
@@ -44,6 +64,16 @@ int boxWidth = width / LMM_WIDTH;
 int boxHeight = height / LMM_HEIGHT;
 
 void draw() {
+  // camera
+  if (cam.available() == true) {
+    cam.read();
+  }
+
+  lmmArray = getDigitalizedImageMonotone_simple(cam, 32, 24, 32, 24);
+
+  sendImage();
+  putOnDisplay();
+
   // clear the screen:
   background(0);
   boxWidth = width / LMM_WIDTH;
@@ -60,6 +90,8 @@ void draw() {
       rect(i * boxWidth, j *boxHeight, boxWidth, boxHeight);
     }
   }
+  
+  delay(1000);
 }
 
 /** 
@@ -85,23 +117,6 @@ void serialEvent(Serial thisPort) {
     // tell us who sent what:
     print(portNumber + " " + char(inByte) + " ");
   }
-}
-
-void mouseDragged() {
-  int x = mouseX / boxWidth;
-  int y = mouseY / boxHeight;
-  x = constrain(x, 0, LMM_WIDTH - 1);
-  y = constrain(y, 0, LMM_HEIGHT - 1);
-  if (mouseButton==LEFT) {
-    lmmArray[x][y] = true;
-  } else {
-    lmmArray[x][y] = false;
-  }
-}
-
-void mouseReleased() {
-  sendImage();
-  putOnDisplay();
 }
 
 void keyPressed() {
@@ -245,4 +260,61 @@ void crossWalk(int posX, int posY) {
     i++; 
     j++;
   }
+}
+
+boolean[][] getDigitalizedImageMonotone_simple(PImage _img, int _numX, int _numY, float _w, float _h) {
+  int imgW = _img.width;
+  int imgH = _img.height;
+  int imgBlockW = _img.width/_numX;
+  int imgBlockH = _img.height/_numY;
+
+  boolean[][] rtArray = new boolean[(int)_w][(int)_h];
+
+  for (int imgX = 0; imgX < imgW; imgX += imgBlockW) {
+    for (int imgY = 0; imgY < imgH; imgY += imgBlockH) {
+      //int imgLoc = imgX + imgY*imgW;
+      //float imgR = red(_img.pixels[imgLoc]);
+      //float imgG = green(_img.pixels[imgLoc]);
+      //float imgB = blue(_img.pixels[imgLoc]);
+      //float v = imgR * 0.298912 + imgG * 0.586611 + imgB * 0.114478;
+
+      float sumV = 0.0;
+      int cntV = 0;
+      for (int imgBlockX = imgX; imgBlockX < imgX + imgBlockW; imgBlockX++) {
+        for (int imgBlockY = imgY; imgBlockY < imgY + imgBlockH; imgBlockY++) {
+          if (imgBlockX < 0 || imgW <= imgBlockX || imgBlockY < 0 || imgH <= imgBlockY) continue;
+          int imgLoc = imgBlockX + imgBlockY * imgW;
+          float imgR = red(_img.pixels[imgLoc]);
+          float imgG = green(_img.pixels[imgLoc]);
+          float imgB = blue(_img.pixels[imgLoc]);
+          sumV += imgR * 0.298912 + imgG * 0.586611 + imgB * 0.114478;
+          cntV++;
+        }
+      }
+      float v = sumV / (float)cntV;
+
+      float threshold = 128;
+
+      int posX = (int)map(imgX, 0, imgW, 0, _w);
+      int posY = (int)map(imgY, 0, imgH, 0, _h);
+
+      boolean value;
+
+      if (v < threshold) {
+        value = false;
+        //print("0 ");
+      } else {
+        value = true;
+        //print("1 ");
+      }
+      rtArray[posX][posY] = value;
+
+      //float blockSizeX = _w / _numX;
+      //float blockSizeY = _h / _numY;
+      //rect(_x + posX, _y + posY, blockSizeX, blockSizeY);
+    }
+    //println("");
+  }
+
+  return rtArray;
 }
