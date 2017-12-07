@@ -1,13 +1,20 @@
-import cv2.cv as cv
-import time
+import numpy as np
+import cv2
 
-cv.NamedWindow("camera", 1)
+cap = cv2.VideoCapture(0)
 
-capture = cv.CaptureFromCAM(0)
+while(True):
+    # Capture frame-by-frame
+    ret, frame = cap.read()
 
-while True:
-	img = cv.QueryFrame(capture)
-	cv.ShowImage("camera", img)
-	if cv.WaitKey(10) > 0:
-		break
-cv.DestroyAllWindows()
+    # Our operations on the frame come here
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # Display the resulting frame
+    cv2.imshow('frame', frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# When everything done, release the capture
+cap.release()
+cv2.destroyAllWindows()
