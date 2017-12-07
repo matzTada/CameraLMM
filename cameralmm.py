@@ -3,24 +3,28 @@ import cv2
 import time
 
 cap = cv2.VideoCapture(0)
-cap.set(3, 320) # width
-cap.set(4, 240) # height
+cap.set(3, 32) # width
+cap.set(4, 24) # height
 
-LMM_HEIGHT = 24
 LMM_WIDTH = 32
+LMM_HEIGHT = 24
 
 lmmArray = [[0 for i in range(LMM_WIDTH)] for j in range(LMM_HEIGHT)]
 past_lmmArray = [[0 for i in range(LMM_WIDTH)] for j in range(LMM_HEIGHT)]
 
 
 import serial 
-ser1 = serial.Serial('/dev/ttyACM0', 58400)
-ser0 = serial.Serial('/dev/ttyACM1', 58400)
+ser0 = serial.Serial('/dev/ttyACM0', 57600)
+ser1 = serial.Serial('/dev/ttyACM1', 57600)
 
 
 while(True):
     # Capture frame-by-frame
     ret, rawframe = cap.read()
+
+    if ret == False:
+      continue
+
     frame = cv2.cvtColor(rawframe, cv2.COLOR_BGR2RGB)
 
     frame = cv2.resize(frame, (LMM_WIDTH, LMM_HEIGHT))
@@ -65,6 +69,7 @@ while(True):
 
         for i in range(0, LMM_WIDTH):
           sendStr += str(lmmArray[j][i])
+        sendStr += "\n"
 
         if j < 16:
           for k in range(0, len(sendStr)):
@@ -74,17 +79,18 @@ while(True):
             ser1.write(sendStr[k])
 
         print("wrote:" + str(j) + " " + sendStr)
-        time.sleep(0.1)
+#        time.sleep(0.1)
 
     ser0.write('o')
     ser0.write('\n')
     ser1.write('o')
     ser1.write('\n')
 
-    time.sleep(5)
+#    time.sleep(1)
 
     # Display the resulting frame
-    cv2.imshow('frame', rawframe)
+    cv2.imshow('frame', cv2.resize(frame, (160, 120)))
+    cv2.imshow('rawframe', cv2.resize(rawframe, (160, 120)))
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
